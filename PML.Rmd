@@ -54,8 +54,8 @@ which describes how the barbell-lift was done,
 and consequently the original
 training set has to be partitioned in training and validations sets.
 
-```{r}
-library(caret, results='hide', message=FALSE, warning=FALSE)
+```{r, results='hide', message=FALSE, warning=FALSE}
+library(caret)
 set.seed(1)
 inTrain <- createDataPartition(train$classe, p=0.7, list=FALSE)
 training <- train[inTrain,]
