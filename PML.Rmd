@@ -1,0 +1,118 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "MB"
+date: "December 15, 2014"
+output: html_document
+---
+
+## Synopsis
+Several devices enable collection of information about personal activity,
+in particular movement.
+A group of people performed barbell lifts in different manners
+that are assigned to 5 categories
+and data is available
+(please refer to http://groupware.les.inf.puc-rio.br/har).
+
+Here I have investigated which of the monitored movement features can
+be used to assess if lift was performed correctly or not and a predictor
+model is setup.
+
+To This aim, the original training set is actually split in a set of
+data that is used to train the random forest model and a validation set
+to cross-validate the model and to estimate the model out-of-sample error.
+
+Finally, the model is applied to the test set, for which informationa about
+the manner each barbell-lift is done is not available
+and results are submitted to Coursera.
+
+## Downloading and reading data
+```{r, results='hide', message=FALSE, warning=FALSE}
+url_train<-"http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+train<-read.csv(file=url_train, na.strings=c("", "NA", "NULL"))
+url_test<-"http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+test<-read.csv(file=url_test, na.strings=c("", "NA", "NULL"))
+```
+
+## Data pre-processing
+### Signals
+Columns containing information that is not useful for the present analysis
+are removed. In particular, all columns with movement signals are retained.
+
+```{r}
+remove<- grep("var_|amplitude_|max_|min_|avg_|stddev_|kurtosis_|skewness_|_timestamp|window|user_name|X", names(train))
+train<-train[,-remove]
+```
+
+We finally have `r dim(train)[2]-1` signal columns and `r dim(train)[1]` observations,
+which include `r sum(is.na(train))` NA values.
+
+### Training and validation sets
+The original training is then split in a training set (70%) and a validation set (30%)
+for cross validation and error estimate.
+Notice that the test set does not contain 'classe' outcome,
+which describes how the barbell-lift was done,
+and consequently the original
+training set has to be partitioned in training and validations sets.
+
+```{r}
+library(caret, results='hide', message=FALSE, warning=FALSE)
+set.seed(1)
+inTrain <- createDataPartition(train$classe, p=0.7, list=FALSE)
+training <- train[inTrain,]
+testing <- train[-inTrain,]
+```
+
+## Classification tree
+
+Features that most discriminate among 'classe's can be dissected by a classification tree.
+
+```{r}
+library(tree)
+set.seed(1)
+mod.tree=tree(classe~.,data=training)
+plot(mod.tree)
+text(mod.tree, pretty=0, cex =.8)
+```
+
+It is not possible to apply single features to predict 'classe'.
+
+## RandomForest model
+
+Predicting the outcome class 'classe' based on the movement signals
+is a classification problem that can be solved with the random forest decision tree.
+Here I have calculated a random forest model to predict the 'classe' feature
+(the manner the barbell-lift was done):
+
+```{r}
+library(randomForest)
+set.seed(1)
+mod.rf<-randomForest(classe~., data=training, importance=TRUE)
+print(mod.rf)
+```
+
+The out-of-bag error rate is about 0.5%.
+
+### Cross-validation on validation set
+I am applying now the prediction model to the validation set,
+for which the real outcome is known,
+to check performance of the predicting model by comparing
+predicted outcomes to the corresponding knwon values,
+and to calculate out-of-sample error.
+
+```{r}
+validation<-predict(mod.rf, testing)
+confusionMatrix(testing$classe, validation)
+```
+
+The out-of-sample error rate, calculated from cross-validation, is also low
+(`r round(100*(1- (sum(diag(confusionMatrix(testing$classe, validation)$table)) / sum(colSums(confusionMatrix(testing$classe, validation)$table)))), digits=1)`%)
+and similar to the out-of-bag error shown in the paragraph above.
+
+## Prediction on test set
+Finally, the random forest model is applied to predict 'classe' in the test set.
+
+```{r}
+predict(mod.rf, test)
+```
+
+These results are submitted to the Coursera website.
